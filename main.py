@@ -2,40 +2,50 @@
 from tracker import PriceTracker
 from dashboard import Dashboard
 import logging
+import os
 
-def test_price_tracking(tracker):
-    """Test price tracking functionality"""
-    logging.info("Testing price tracking...")
-    
-    # Test getting and saving price
-    price = tracker.update_price()
-    if price:
-        logging.info(f"Successfully got and saved price: ${price}")
-    else:
-        logging.error("Failed to get price")
-        
-    # Test loading price history
-    history = tracker.get_price_history()
-    logging.info(f"Loaded {len(history)} price records")
-    for record in history:
-        logging.info(f"Record: Date={record['Date']}, Price=${record['Price']}")
+def setup_logging():
+    """Setup logging configuration"""
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.StreamHandler(),
+            logging.FileHandler('price_tracker.log')
+        ]
+    )
+
+def ensure_directories():
+    """Ensure required directories exist"""
+    directories = ['static', 'static/thumbnails', 'data', 'templates']
+    for directory in directories:
+        os.makedirs(directory, exist_ok=True)
 
 def main():
     """Main entry point"""
-    # Setup logging
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    )
+    # Setup
+    setup_logging()
+    ensure_directories()
     
-    URL = "https://palmettostatearmory.com/psa-ar-v-16-9mm-1-10-lightweight-m-lok-moe-ept-pistol.html"
-    PRICE_HISTORY_FILE = 'price_history.csv'
+    # Configure items to track
+    items_config = [
+        {
+            'name': 'PSA AR-V 9mm Pistol',
+            'url': "https://palmettostatearmory.com/psa-ar-v-16-9mm-1-10-lightweight-m-lok-moe-ept-pistol.html"
+        }
+        # Add more items here as needed
+        # {
+        #     'name': 'Another Item',
+        #     'url': 'https://example.com/another-item'
+        # }
+    ]
     
     # Initialize components
-    tracker = PriceTracker(URL, PRICE_HISTORY_FILE)
+    tracker = PriceTracker(items_config)
     
-    # Run test
-    test_price_tracking(tracker)
+    # Initial price update
+    logging.info("Performing initial price update...")
+    tracker.update_all_prices()
     
     # Initialize and run dashboard
     dashboard = Dashboard(tracker)
