@@ -37,6 +37,18 @@ class PriceTracker:
                 self.logger.error(f"Error updating item {item_id}: {e}")
         return results
         
+    def update_configuration(self, items_config):
+        """Update the tracker with a new configuration"""
+        self.items = {}
+        for item in items_config:
+            scraper = PriceScraper(item['url'])
+            data_manager = PriceDataManager(scraper.item_id)
+            self.items[scraper.item_id] = {
+                'scraper': scraper,
+                'data_manager': data_manager,
+                'name': item.get('name', 'Unknown Item')
+            }    
+        
     def update_price(self, item_id):
         """Update price for a specific item"""
         if item_id not in self.items:

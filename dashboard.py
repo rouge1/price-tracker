@@ -1,17 +1,24 @@
-from flask import Flask, render_template, jsonify, send_from_directory
+from flask import Flask, render_template, jsonify, send_from_directory, request
 from apscheduler.schedulers.background import BackgroundScheduler
 import os
 
 class Dashboard:
     """Flask application for the dashboard"""
     
-    def __init__(self, tracker):
+    def __init__(self, tracker, config_manager):
         self.app = Flask(__name__, static_folder='static')
         self.tracker = tracker
+        self.config_manager = config_manager
         self.setup_routes()
         self.setup_scheduler()
         self.create_template()
         
+    def setup_scheduler(self):
+        """Setup automated price updates"""
+        scheduler = BackgroundScheduler()
+        scheduler.add_job(self.tracker.update_all_prices, 'cron', hour=0)
+        scheduler.start()
+
     def setup_routes(self):
         """Setup Flask routes"""
         
@@ -24,22 +31,46 @@ class Dashboard:
             """Get all items data"""
             return jsonify(self.tracker.get_all_items())
             
+        @self.app.route('/api/config/items')
+        def get_config_items():
+            """Get items configuration"""
+            return jsonify(self.config_manager.get_items())
+            
+        @self.app.route('/api/config/add', methods=['POST'])
+        def add_item():
+            """Add new item to track"""
+            data = request.json
+            success, message = self.config_manager.add_item(data['name'], data['url'])
+            if success:
+                # Reinitialize tracker with new configuration
+                items = self.config_manager.get_items()
+                self.tracker.update_configuration(items)
+                # Update prices immediately for the new item
+                self.tracker.update_all_prices()
+            return jsonify({'success': success, 'message': message})
+            
+        @self.app.route('/api/config/remove', methods=['POST'])
+        def remove_item():
+            """Remove item from tracking"""
+            data = request.json
+            success, message = self.config_manager.remove_item(data['url'])
+            if success:
+                # Reinitialize tracker with new configuration
+                items = self.config_manager.get_items()
+                self.tracker.update_configuration(items)
+                # Update prices immediately for the new item
+                #self.tracker.update_all_prices()
+            return jsonify({'success': success, 'message': message})
+            
         @self.app.route('/static/<path:filename>')
         def serve_static(filename):
             return send_from_directory('static', filename)
             
-    def setup_scheduler(self):
-        """Setup automated price updates"""
-        scheduler = BackgroundScheduler()
-        scheduler.add_job(self.tracker.update_all_prices, 'cron', hour=0)
-        scheduler.start()
-        
     def create_template(self):
         """Create dashboard HTML template"""
         os.makedirs('templates', exist_ok=True)
         with open('templates/dashboard.html', 'w') as f:
-            f.write("""
-<!DOCTYPE html>
+            f.write('''<!DOCTYPE html>
 <html>
 <head>
     <title>Price Tracking Dashboard</title>
@@ -103,6 +134,79 @@ class Dashboard:
             height: 200px;
             width: 100%;
         }
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #ddd;
+        }
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            border: 1px solid transparent;
+            border-bottom: none;
+            margin-bottom: -1px;
+        }
+        .tab.active {
+            background-color: white;
+            border-color: #ddd;
+            border-bottom-color: white;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .config-form {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .config-form input[type="text"] {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .config-form button {
+            background-color: #28a745;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .config-form button:hover {
+            background-color: #218838;
+        }
+        .config-list {
+            background-color: white;
+            border-radius: 10px;
+            padding: 20px;
+        }
+        .config-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        .config-item:last-child {
+            border-bottom: none;
+        }
+        .remove-btn {
+            background-color: #dc3545;
+            color: white;
+            padding: 5px 10px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .remove-btn:hover {
+            background-color: #c82333;
+        }
         h1 {
             text-align: center;
             color: #333;
@@ -113,8 +217,37 @@ class Dashboard:
 <body>
     <div class="container">
         <h1>Price Tracking Dashboard</h1>
-        <div class="items-list" id="items-container">
-            <!-- Items will be dynamically inserted here -->
+        
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('tracking')">Price Tracking</div>
+            <div class="tab" onclick="switchTab('config')">Configuration</div>
+        </div>
+        
+        <div id="tracking-tab" class="tab-content active">
+            <div class="items-list" id="items-container">
+                <!-- Items will be dynamically inserted here -->
+            </div>
+        </div>
+        
+        <div id="config-tab" class="tab-content">
+            <div class="config-form">
+                <h2>Add New Item to Track</h2>
+                <form id="add-item-form" onsubmit="return addItem(event)">
+                    <div>
+                        <label for="item-name">Item Name:</label>
+                        <input type="text" id="item-name" required>
+                    </div>
+                    <div>
+                        <label for="item-url">Item URL:</label>
+                        <input type="text" id="item-url" required>
+                    </div>
+                    <button type="submit">Add Item</button>
+                </form>
+            </div>
+            
+            <div class="config-list" id="config-items">
+                <!-- Configuration items will be dynamically inserted here -->
+            </div>
         </div>
     </div>
 
@@ -215,6 +348,49 @@ class Dashboard:
             return card;
         }
         
+        function switchTab(tabName) {
+            // Update tab buttons
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelector(`.tab[onclick="switchTab('${tabName}')"]`).classList.add('active');
+            
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.getElementById(`${tabName}-tab`).classList.add('active');
+            
+            // Refresh content if needed
+            if (tabName === 'tracking') {
+                updateDashboard();
+            } else if (tabName === 'config') {
+                updateConfigList();
+            }
+        }
+        
+        function updateConfigList() {
+            fetch('/api/config/items')
+                .then(response => response.json())
+                .then(items => {
+                    const container = document.getElementById('config-items');
+                    container.innerHTML = '<h2>Currently Tracked Items</h2>';
+                    
+                    items.forEach(item => {
+                        const div = document.createElement('div');
+                        div.className = 'config-item';
+                        div.innerHTML = `
+                            <div>
+                                <strong>${item.name}</strong><br>
+                                <small>${item.url}</small>
+                            </div>
+                            <button class="remove-btn" onclick="removeItem('${item.url}')">Remove</button>
+                        `;
+                        container.appendChild(div);
+                    });
+                });
+        }
+        
         function updateDashboard() {
             fetch('/api/items')
                 .then(response => response.json())
@@ -228,16 +404,58 @@ class Dashboard:
                     }
                 });
         }
+        
+        function addItem(event) {
+            event.preventDefault();
+            const name = document.getElementById('item-name').value;
+            const url = document.getElementById('item-url').value;
+            
+            fetch('/api/config/add', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ name, url }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('add-item-form').reset();
+                    updateConfigList();
+                    updateDashboard();
+                }
+                alert(data.message);
+            });
+            
+            return false;
+        }
+        
+        function removeItem(url) {
+            if (confirm('Are you sure you want to remove this item?')) {
+                fetch('/api/config/remove', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ url }),
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        updateConfigList();
+                        updateDashboard();
+                    }
+                    alert(data.message);
+                });
+            }
+        }
 
         // Initial load
         updateDashboard();
-
-        // Refresh every 5 minutes
-        setInterval(updateDashboard, 300000);
+        
     </script>
 </body>
-</html>
-            """)
+</html>''')
             
     def run(self, host='0.0.0.0', port=5000):
         """Run the Flask application"""

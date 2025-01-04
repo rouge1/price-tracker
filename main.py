@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from tracker import PriceTracker
 from dashboard import Dashboard
+from config_manager import ConfigManager
 import logging
 import os
 
@@ -27,28 +28,18 @@ def main():
     setup_logging()
     ensure_directories()
     
-    # Configure items to track
-    items_config = [
-        {
-            'name': 'PSA AR-V 9mm Pistol',
-            'url': "https://palmettostatearmory.com/psa-ar-v-16-9mm-1-10-lightweight-m-lok-moe-ept-pistol.html"
-        }
-        # Add more items here as needed
-        # {
-        #     'name': 'Another Item',
-        #     'url': 'https://example.com/another-item'
-        # }
-    ]
+    # Initialize configuration manager
+    config_manager = ConfigManager()
     
     # Initialize components
-    tracker = PriceTracker(items_config)
+    tracker = PriceTracker(config_manager.get_items())
     
     # Initial price update
     logging.info("Performing initial price update...")
     tracker.update_all_prices()
     
     # Initialize and run dashboard
-    dashboard = Dashboard(tracker)
+    dashboard = Dashboard(tracker, config_manager)
     dashboard.run()
 
 if __name__ == "__main__":
