@@ -101,7 +101,7 @@ class ConfigManager:
         if self.save_items(items) and self.save_history(history):
             return True, "Item removed successfully"
         return False, "Error removing item"
-        
+
     def restore_item(self, url):
         """Restore an item from history back to active tracking"""
         items = self.load_items()
@@ -128,14 +128,11 @@ class ConfigManager:
         history = [item for item in history if item['url'] != url]
         
         # Save both files
-        items_saved = self.save_items(items)
-        history_saved = self.save_history(history)
-        
-        if items_saved and history_saved:
+        if self.save_items(items) and self.save_history(history):
             self.logger.info(f"Successfully restored item: {url}")
             return True, "Item restored successfully"
         
-        self.logger.error(f"Error saving during item restoration. Items saved: {items_saved}, History saved: {history_saved}")
+        self.logger.error(f"Error saving during item restoration.")
         return False, "Error restoring item"
         
     def get_items(self):

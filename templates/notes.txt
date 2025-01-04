@@ -1,0 +1,5 @@
+So we added a history button.
+
+working on removing the popup windows
+
+need a status icon on the config page

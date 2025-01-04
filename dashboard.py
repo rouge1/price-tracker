@@ -61,9 +61,31 @@ class Dashboard:
                 #self.tracker.update_all_prices()
             return jsonify({'success': success, 'message': message})
             
+        @self.app.route('/api/history')
+        def get_history():
+            """Get history of removed items"""
+            return jsonify(self.config_manager.get_history())
+            
+        @self.app.route('/api/history/restore', methods=['POST'])
+        def restore_item():
+            """Restore an item from history"""
+            data = request.json
+            success, message = self.config_manager.restore_item(data['url'])
+            if success:
+                # Reinitialize tracker with new configuration
+                items = self.config_manager.get_items()
+                self.tracker.update_configuration(items)
+                # Update prices immediately for the restored item
+                self.tracker.update_all_prices()
+            return jsonify({'success': success, 'message': message})
+            
         @self.app.route('/static/<path:filename>')
         def serve_static(filename):
             return send_from_directory('static', filename)
+        
+        @self.app.route('/favicon.ico')
+        def favicon():
+            return send_from_directory(os.path.join(self.app.root_path, 'static'), 'favicon.ico')
             
     def run(self, host='0.0.0.0', port=5000):
         """Run the Flask application"""

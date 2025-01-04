@@ -135,6 +135,17 @@
         .remove-btn:hover {
             background-color: #c82333;
         }
+        .restore-btn {
+            background-color: #007bff;
+            color: white;
+            padding: 5px 10px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .restore-btn:hover {
+            background-color: #0056b3;
+        }
         h1 {
             text-align: center;
             color: #333;
@@ -149,6 +160,7 @@
         <div class="tabs">
             <div class="tab active" onclick="switchTab('tracking')">Price Tracking</div>
             <div class="tab" onclick="switchTab('config')">Configuration</div>
+            <div class="tab" onclick="switchTab('history')">History</div>
         </div>
         
         <div id="tracking-tab" class="tab-content active">
@@ -175,6 +187,12 @@
             
             <div class="config-list" id="config-items">
                 <!-- Configuration items will be dynamically inserted here -->
+            </div>
+        </div>
+
+        <div id="history-tab" class="tab-content">
+            <div class="config-list" id="history-items">
+                <!-- History items will be dynamically inserted here -->
             </div>
         </div>
     </div>
@@ -294,6 +312,8 @@
                 updateDashboard();
             } else if (tabName === 'config') {
                 updateConfigList();
+            } else if (tabName === 'history') {
+                updateHistoryList();
             }
         }
         
@@ -316,6 +336,32 @@
                         `;
                         container.appendChild(div);
                     });
+                });
+        }
+        
+        function updateHistoryList() {
+            fetch('/api/history')
+                .then(response => response.json())
+                .then(items => {
+                    const container = document.getElementById('history-items');
+                    container.innerHTML = '<h2>Removed Items</h2>';
+                    
+                    if (items.length === 0) {
+                        container.innerHTML += '<p>No removed items found.</p>';
+                    } else {
+                        items.forEach(item => {
+                            const div = document.createElement('div');
+                            div.className = 'config-item';
+                            div.innerHTML = `
+                                <div>
+                                    <strong>${item.name}</strong><br>
+                                    <small>${item.url}</small>
+                                </div>
+                                <button class="restore-btn" onclick="restoreItem('${item.url}')">Restore</button>
+                            `;
+                            container.appendChild(div);
+                        });
+                    }
                 });
         }
         
@@ -351,31 +397,50 @@
                     document.getElementById('add-item-form').reset();
                     updateConfigList();
                     updateDashboard();
+                } else {
+                    alert(data.message);
                 }
-                alert(data.message);
             });
             
             return false;
         }
         
         function removeItem(url) {
-            if (confirm('Are you sure you want to remove this item?')) {
-                fetch('/api/config/remove', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ url }),
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        updateConfigList();
-                        updateDashboard();
-                    }
+            fetch('/api/config/remove', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ url }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    updateConfigList();
+                    updateDashboard();
+                } else {
                     alert(data.message);
-                });
-            }
+                }
+            });
+        }
+
+        function restoreItem(url) {
+            fetch('/api/history/restore', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ url }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    updateHistoryList();
+                    updateDashboard();
+                } else {
+                    alert(data.message);
+                }
+            });
         }
 
         // Initial load
