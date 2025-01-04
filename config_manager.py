@@ -103,25 +103,40 @@ class ConfigManager:
         return False, "Error removing item"
         
     def restore_item(self, url):
-        """Restore an item from history to active tracking"""
+        """Restore an item from history back to active tracking"""
+        items = self.load_items()
         history = self.load_history()
         
-        # Find and remove from history
+        # Check if URL already exists in active items
+        if any(item['url'] == url for item in items):
+            return False, "URL already being tracked"
+        
+        # Find item in history
         restored_items = [item for item in history if item['url'] == url]
         if not restored_items:
+            self.logger.warning(f"Attempted to restore non-existent item: {url}")
             return False, "Item not found in history"
-            
+        
         restored_item = restored_items[0]
+        # Remove removed_at field before adding back to items
+        restored_item.pop('removed_at', None)
+        
+        # Add to items
+        items.append(restored_item)
+        
+        # Remove from history
         history = [item for item in history if item['url'] != url]
         
-        # Remove timestamp and add back to active items
-        restored_item.pop('removed_at', None)
-        success, message = self.add_item(restored_item['name'], restored_item['url'])
+        # Save both files
+        items_saved = self.save_items(items)
+        history_saved = self.save_history(history)
         
-        if success:
-            self.save_history(history)
+        if items_saved and history_saved:
+            self.logger.info(f"Successfully restored item: {url}")
             return True, "Item restored successfully"
-        return False, message
+        
+        self.logger.error(f"Error saving during item restoration. Items saved: {items_saved}, History saved: {history_saved}")
+        return False, "Error restoring item"
         
     def get_items(self):
         """Get all tracked items"""
