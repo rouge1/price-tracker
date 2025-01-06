@@ -1,16 +1,57 @@
-# price-tracker
+# Price Tracker
+A web-based tool that tracks product prices across various websites and visualizes price history over time. Built with Python, Flask, and Selenium.
 
-## The program will:
+# Features
 
-	1) Fetch the current price from the webpage
-	2) Save it to a CSV file (price_history.csv)	
-  3) Generate a plot (price_history.png) showing the price trends over time
+	Automated price tracking for multiple products
+	Daily price updates with configurable schedules
+	Interactive dashboard to monitor price trends
+	Product thumbnail capture and storage
+	Price history visualization
+	Easy product addition and removal
+	Removed items history with restore capability
 
-## Each time it runs, it will:
-	1) Add a new row to the CSV with the current date and price
-	2) Update the plot with the latest data
+# Requirements
 
-## Notes
-The script includes error handling for cases where the website 
-might be unavailable or the price format changes.
-The headers in the request help prevent blocking by the website.
+	Python 3.x
+	Firefox Browser (for Selenium WebDriver)
+
+# Required Python packages:
+	Flask
+	Selenium
+	APScheduler
+	logging
+
+# Quick Start
+
+1. Clone the repository
+2. Install dependencies:
+
+		bash pip install -r requirements.txt
+
+3. Run the application:
+
+		bash python main.py
+
+4. Access the dashboard at http://localhost:5000
+
+# Project Structure
+
+	main.py - Application entry point
+	dashboard.py - Web interface and API endpoints
+	tracker.py - Core price tracking functionality
+	scraper.py - Web scraping implementation
+	datamanager.py - Data storage and retrieval
+	config_manager.py - Configuration management
+
+# Data Storage
+The application stores data in the following directories:
+
+	/data - Price histories and metadata
+	/static/thumbnails - Product images
+	/templates - Dashboard HTML templates
+
+# Contributing
+Feel free to open issues or submit pull requests with improvements.
+# Note
+This tool is intended for personal use and educational purposes. Please respect websites' terms of service and implement appropriate rate limiting when scraping.
