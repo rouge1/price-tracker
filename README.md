@@ -27,7 +27,7 @@ A web-based tool that tracks product prices across various websites and visualiz
 1. Clone the repository
 2. Install dependencies:
 
-		bash pip install -r requirements.txt
+		bash pip install Flask Selenium APScheduler logging
 
 3. Run the application:
 
