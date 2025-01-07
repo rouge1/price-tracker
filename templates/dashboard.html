@@ -2,7 +2,6 @@
 <html>
 <head>
     <title>Price Tracking Dashboard</title>
-    <link rel="icon" href="data:,">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body {
@@ -151,6 +150,55 @@
             text-align: center;
             color: #333;
             margin-bottom: 30px;
+        }
+        .config-item-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+        }
+        
+        .item-status-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .progress-ring {
+            position: relative;
+            width: 24px;
+            height: 24px;
+        }
+        
+        .progress-ring__circle circle {
+            stroke-width: 2;
+            fill: transparent;
+            transform: rotate(-90deg);
+            transform-origin: center;
+        }
+        
+        .progress-ring__circle-bg {
+            stroke: #e9ecef;
+        }
+        
+        .progress-ring__circle-progress {
+            stroke: #28a745;
+            transition: stroke-dashoffset 0.35s, stroke 0.35s;
+        }
+        
+        .progress-ring.checking .progress-ring__circle-progress {
+            stroke: #ffc107;
+            animation: progress-spin 1s linear infinite;
+        }
+        
+        .progress-ring.error .progress-ring__circle-progress {
+            stroke: #dc3545;
+        }
+        
+        @keyframes progress-spin {
+            100% {
+                transform: rotate(270deg);
+            }
         }
     </style>
 </head>
@@ -332,13 +380,24 @@
                         const div = document.createElement('div');
                         div.className = 'config-item';
                         div.innerHTML = `
-                            <div>
-                                <strong>${item.name}</strong><br>
-                                <small>${item.url}</small>
+                            <div class="config-item-content">
+                                <div>
+                                    <strong>${item.name}</strong><br>
+                                    <small>${item.url}</small>
+                                </div>
+                                <div class="item-status-container">
+                                    <div class="progress-ring" id="status-${item.url.replace(/[^a-zA-Z0-9]/g, '_')}">
+                                        <svg class="progress-ring__circle" width="24" height="24">
+                                            <circle class="progress-ring__circle-bg" r="8" cx="12" cy="12" />
+                                            <circle class="progress-ring__circle-progress" r="8" cx="12" cy="12" />
+                                        </svg>
+                                    </div>
+                                    <button class="remove-btn" onclick="removeItem('${item.url}')">Remove</button>
+                                </div>
                             </div>
-                            <button class="remove-btn" onclick="removeItem('${item.url}')">Remove</button>
                         `;
                         container.appendChild(div);
+                        updateItemStatus(item.url, item.status || 'checking');  // Use stored status
                     });
                 });
         }
@@ -388,6 +447,9 @@
             const name = document.getElementById('item-name').value;
             const url = document.getElementById('item-url').value;
             
+            // Immediately add to config list
+            addItemToConfig(name, url);
+            
             fetch('/api/config/add', {
                 method: 'POST',
                 headers: {
@@ -399,11 +461,21 @@
             .then(data => {
                 if (data.success) {
                     document.getElementById('add-item-form').reset();
-                    updateConfigList();
                     updateDashboard();
+                    updateItemStatus(url, 'success');
                 } else {
                     alert(data.message);
+                    // Remove the item from config list if addition failed
+                    updateItemStatus(url, 'error');
+                    setTimeout(() => {
+                        const configItem = document.querySelector(`.config-item small[innerText="${url}"]`).closest('.config-item');
+                        if (configItem) configItem.remove();
+                    }, 2000);
                 }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                updateItemStatus(url, 'error');
             });
             
             return false;
@@ -445,6 +517,63 @@
                     alert(data.message);
                 }
             });
+        }
+
+        function updateItemStatus(url, status, progress = 0) {
+            const safeId = url.replace(/[^a-zA-Z0-9]/g, '_');
+            const statusElement = document.getElementById(`status-${safeId}`);
+            if (!statusElement) return;
+        
+            const circle = statusElement.querySelector('.progress-ring__circle-progress');
+            const radius = 8;
+            const circumference = 2 * Math.PI * radius;
+        
+            // Reset classes
+            statusElement.classList.remove('checking', 'error', 'success');
+        
+            // Update status and progress
+            switch (status) {
+                case 'checking':
+                    statusElement.classList.add('checking');
+                    circle.style.strokeDasharray = `${circumference * 0.75} ${circumference * 0.25}`;
+                    circle.style.strokeDashoffset = 0;
+                    break;
+                case 'success':
+                    statusElement.classList.add('success');
+                    circle.style.strokeDasharray = `${circumference} ${circumference}`;
+                    circle.style.strokeDashoffset = 0;
+                    break;
+                case 'error':
+                    statusElement.classList.add('error');
+                    circle.style.strokeDasharray = `${circumference} ${circumference}`;
+                    circle.style.strokeDashoffset = 0;
+                    break;
+            }
+        }
+        
+        function addItemToConfig(name, url) {
+            const container = document.getElementById('config-items');
+            const div = document.createElement('div');
+            div.className = 'config-item';
+            div.innerHTML = `
+                <div class="config-item-content">
+                    <div>
+                        <strong>${name}</strong><br>
+                        <small>${url}</small>
+                    </div>
+                    <div class="item-status-container">
+                        <div class="progress-ring" id="status-${url.replace(/[^a-zA-Z0-9]/g, '_')}">
+                            <svg class="progress-ring__circle" width="24" height="24">
+                                <circle class="progress-ring__circle-bg" r="8" cx="12" cy="12" />
+                                <circle class="progress-ring__circle-progress" r="8" cx="12" cy="12" />
+                            </svg>
+                        </div>
+                        <button class="remove-btn" onclick="removeItem('${url}')">Remove</button>
+                    </div>
+                </div>
+            `;
+            container.appendChild(div);
+            updateItemStatus(url, 'checking');
         }
 
         // Initial load

@@ -82,7 +82,23 @@ class Dashboard:
         @self.app.route('/static/<path:filename>')
         def serve_static(filename):
             return send_from_directory('static', filename)
-             
+        
+        @self.app.route('/api/status')
+        def get_status():
+            """Get current status of all items"""
+            statuses = {}
+            for item_id, item in self.tracker.items.items():
+                try:
+                    metadata = item['data_manager'].load_metadata()
+                    if metadata and metadata.get('last_update'):
+                        status = 'success'
+                    else:
+                        status = 'checking'
+                    statuses[item['scraper'].url] = status
+                except Exception as e:
+                    statuses[item['scraper'].url] = 'error'
+            return jsonify(statuses)
+            
     def run(self, host='0.0.0.0', port=5000):
         """Run the Flask application"""
         self.app.run(host=host, port=port)

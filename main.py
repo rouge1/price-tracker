@@ -32,7 +32,7 @@ def main():
     config_manager = ConfigManager()
     
     # Initialize components
-    tracker = PriceTracker(config_manager.get_items())
+    tracker = PriceTracker(config_manager.get_items(), config_manager)
     
     # Initial price update
     logging.info("Performing initial price update...")

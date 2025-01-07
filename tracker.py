@@ -5,13 +5,15 @@ import logging
 class PriceTracker:
     """Coordinates price scraping and data management for multiple items"""
     
-    def __init__(self, items_config):
+    def __init__(self, items_config, config_manager):
         """
         Initialize with a list of items to track
         items_config: list of dictionaries with 'url' and 'name' keys
+        config_manager: ConfigManager instance for saving status updates
         """
         self.items = {}
         self.logger = logging.getLogger(__name__)
+        self.config_manager = config_manager  
         
         for item in items_config:
             scraper = PriceScraper(item['url'])
@@ -25,6 +27,8 @@ class PriceTracker:
     def update_all_prices(self):
         """Update prices for all tracked items"""
         results = {}
+        config_items = self.config_manager.get_items()  # Add this line
+        
         for item_id, item in self.items.items():
             try:
                 data = item['scraper'].get_item_data()
@@ -32,9 +36,20 @@ class PriceTracker:
                     item['data_manager'].save_price(data['price'])
                     item['data_manager'].save_metadata(data)
                     results[item_id] = data
+                    # Update status to success
+                    for config_item in config_items:
+                        if config_item['url'] == item['scraper'].url:
+                            config_item['status'] = 'success'
                     self.logger.info(f"Updated item {item_id}")
             except Exception as e:
+                # Update status to error
+                for config_item in config_items:
+                    if config_item['url'] == item['scraper'].url:
+                        config_item['status'] = 'error'
                 self.logger.error(f"Error updating item {item_id}: {e}")
+                
+        # Save updated statuses
+        self.config_manager.save_items(config_items)
         return results
         
     def update_configuration(self, items_config):

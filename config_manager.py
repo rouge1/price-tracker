@@ -71,7 +71,8 @@ class ConfigManager:
         # Add new item
         items.append({
             'name': name,
-            'url': url
+            'url': url,
+            'status': 'checking'
         })
         
         if self.save_items(items):
@@ -120,6 +121,7 @@ class ConfigManager:
         restored_item = restored_items[0]
         # Remove removed_at field before adding back to items
         restored_item.pop('removed_at', None)
+        restored_item['status'] = 'checking'
         
         # Add to items
         items.append(restored_item)
