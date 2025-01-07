@@ -82,11 +82,7 @@ class Dashboard:
         @self.app.route('/static/<path:filename>')
         def serve_static(filename):
             return send_from_directory('static', filename)
-        
-        @self.app.route('/favicon.ico')
-        def favicon():
-            return send_from_directory(os.path.join(self.app.root_path, 'static'), 'favicon.ico')
-            
+             
     def run(self, host='0.0.0.0', port=5000):
         """Run the Flask application"""
         self.app.run(host=host, port=port)
