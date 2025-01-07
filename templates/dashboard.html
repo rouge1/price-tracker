@@ -127,10 +127,16 @@
         .remove-btn {
             background-color: #dc3545;
             color: white;
-            padding: 5px 10px;
             border: none;
             border-radius: 4px;
             cursor: pointer;
+            height: 32px;
+            display: flex;
+            align-items: center;  /* Center vertically */
+            justify-content: center;  /* Center horizontally */
+            padding: 4px 10px;  /* Adjust padding */
+            line-height: 32px;  /* Match the height to ensure text centering */
+            margin: 0;  /* Remove any default margins */
         }
         .remove-btn:hover {
             background-color: #c82333;
@@ -156,49 +162,63 @@
             justify-content: space-between;
             align-items: center;
             width: 100%;
+            min-height: 48px; /* Give consistant height */
         }
-        
         .item-status-container {
             display: flex;
             align-items: center;
             gap: 10px;
+            height: 100%; /* Make the container full height */
         }
-        
         .progress-ring {
             position: relative;
             width: 24px;
             height: 24px;
         }
-        
         .progress-ring__circle circle {
-            stroke-width: 2;
+            stroke-width: 3;
             fill: transparent;
             transform: rotate(-90deg);
             transform-origin: center;
         }
-        
         .progress-ring__circle-bg {
             stroke: #e9ecef;
         }
-        
         .progress-ring__circle-progress {
             stroke: #28a745;
             transition: stroke-dashoffset 0.35s, stroke 0.35s;
         }
-        
         .progress-ring.checking .progress-ring__circle-progress {
             stroke: #ffc107;
             animation: progress-spin 1s linear infinite;
         }
-        
         .progress-ring.error .progress-ring__circle-progress {
             stroke: #dc3545;
         }
-        
         @keyframes progress-spin {
             100% {
                 transform: rotate(270deg);
             }
+        }
+        .status-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;  /* Space between text and circle */
+            height: 100%; /* Make the container full height */
+        }
+        .status-label {
+            font-size: 0.8em;
+            width: 60px;  /* Fixed width for the label */
+            text-align: right;  /* Align text to the right, toward the circle */
+        }
+        .status-label.checking {
+            color: #ffc107;
+        }
+        .status-label.success {
+            color: #28a745;
+        }
+        .status-label.error {
+            color: #dc3545;
         }
     </style>
 </head>
@@ -386,19 +406,23 @@
                                     <small>${item.url}</small>
                                 </div>
                                 <div class="item-status-container">
-                                    <div class="progress-ring" id="status-${item.url.replace(/[^a-zA-Z0-9]/g, '_')}">
-                                        <svg class="progress-ring__circle" width="24" height="24">
-                                            <circle class="progress-ring__circle-bg" r="8" cx="12" cy="12" />
-                                            <circle class="progress-ring__circle-progress" r="8" cx="12" cy="12" />
-                                        </svg>
+                                    <div class="status-container">
+                                        <span class="status-label" id="status-label-${item.url.replace(/[^a-zA-Z0-9]/g, '_')}">checking</span>
+                                        <div class="progress-ring" id="status-${item.url.replace(/[^a-zA-Z0-9]/g, '_')}">
+                                            <svg class="progress-ring__circle" width="24" height="24">
+                                                <circle class="progress-ring__circle-bg" r="8" cx="12" cy="12" />
+                                                <circle class="progress-ring__circle-progress" r="8" cx="12" cy="12" />
+                                            </svg>
+                                        </div>
                                     </div>
                                     <button class="remove-btn" onclick="removeItem('${item.url}')">Remove</button>
                                 </div>
                             </div>
                         `;
                         container.appendChild(div);
-                        updateItemStatus(item.url, item.status || 'checking');  // Use stored status
+                        updateItemStatus(item.url, item.status || 'checking');
                     });
+
                 });
         }
         
@@ -420,7 +444,7 @@
                                     <strong>${item.name}</strong><br>
                                     <small>${item.url}</small>
                                 </div>
-                                <button class="restore-btn" onclick="restoreItem('${item.url}')">Restore</button>
+                                <button class="restore-btn" onclick="restoreItem('${item.url}', '${item.name}')">Restore</button>
                             `;
                             container.appendChild(div);
                         });
@@ -462,15 +486,14 @@
                 if (data.success) {
                     document.getElementById('add-item-form').reset();
                     updateDashboard();
-                    updateItemStatus(url, 'success');
+                    // Status will be updated by the backend when price check completes
                 } else {
                     alert(data.message);
                     // Remove the item from config list if addition failed
-                    updateItemStatus(url, 'error');
-                    setTimeout(() => {
-                        const configItem = document.querySelector(`.config-item small[innerText="${url}"]`).closest('.config-item');
-                        if (configItem) configItem.remove();
-                    }, 2000);
+                    const configItem = document.querySelector(`.config-item small[innerText="${url}"]`).closest('.config-item');
+                    if (configItem) {
+                        configItem.remove();
+                    }
                 }
             })
             .catch(error => {
@@ -500,7 +523,28 @@
             });
         }
 
-        function restoreItem(url) {
+        function restoreItem(url, name) {
+            // Store all current history items except the one being restored
+            const historyContainer = document.getElementById('history-items');
+            const allHistoryItems = historyContainer.querySelectorAll('.config-item');
+            const updatedHistory = Array.from(allHistoryItems).filter(item => {
+                const itemUrl = item.querySelector('small').innerText;
+                return itemUrl !== url;
+            });
+            
+            // Clear and rebuild history list
+            historyContainer.innerHTML = '<h2>Removed Items</h2>';
+            if (updatedHistory.length === 0) {
+                historyContainer.innerHTML += '<p>No removed items found.</p>';
+            } else {
+                updatedHistory.forEach(item => {
+                    historyContainer.appendChild(item.cloneNode(true));
+                });
+            }
+        
+            // Add to config list immediately with the name
+            addItemToConfig(name, url);
+            
             fetch('/api/history/restore', {
                 method: 'POST',
                 headers: {
@@ -511,18 +555,33 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    updateHistoryList();
                     updateDashboard();
                 } else {
                     alert(data.message);
+                    // If restore failed, remove from config and refresh history
+                    const configItem = document.querySelector(`.config-item small[innerText="${url}"]`)?.closest('.config-item');
+                    if (configItem) {
+                        configItem.remove();
+                    }
+                    updateHistoryList();
                 }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                // If restore failed, remove from config and refresh history
+                const configItem = document.querySelector(`.config-item small[innerText="${url}"]`)?.closest('.config-item');
+                if (configItem) {
+                    configItem.remove();
+                }
+                updateHistoryList();
             });
         }
-
+        
         function updateItemStatus(url, status, progress = 0) {
             const safeId = url.replace(/[^a-zA-Z0-9]/g, '_');
             const statusElement = document.getElementById(`status-${safeId}`);
-            if (!statusElement) return;
+            const labelElement = document.getElementById(`status-label-${safeId}`);
+            if (!statusElement || !labelElement) return;
         
             const circle = statusElement.querySelector('.progress-ring__circle-progress');
             const radius = 8;
@@ -530,21 +589,28 @@
         
             // Reset classes
             statusElement.classList.remove('checking', 'error', 'success');
+            labelElement.classList.remove('checking', 'error', 'success');
         
             // Update status and progress
             switch (status) {
                 case 'checking':
                     statusElement.classList.add('checking');
+                    labelElement.classList.add('checking');
+                    labelElement.textContent = 'Checking';
                     circle.style.strokeDasharray = `${circumference * 0.75} ${circumference * 0.25}`;
                     circle.style.strokeDashoffset = 0;
                     break;
                 case 'success':
                     statusElement.classList.add('success');
+                    labelElement.classList.add('success');
+                    labelElement.textContent = 'Updated';
                     circle.style.strokeDasharray = `${circumference} ${circumference}`;
                     circle.style.strokeDashoffset = 0;
                     break;
                 case 'error':
                     statusElement.classList.add('error');
+                    labelElement.classList.add('error');
+                    labelElement.textContent = 'Error';
                     circle.style.strokeDasharray = `${circumference} ${circumference}`;
                     circle.style.strokeDashoffset = 0;
                     break;
@@ -553,6 +619,11 @@
         
         function addItemToConfig(name, url) {
             const container = document.getElementById('config-items');
+            
+            // Check if item already exists in config
+            const existingItem = document.querySelector(`.config-item small[innerText="${url}"]`);
+            if (existingItem) return; // Don't add if already exists
+            
             const div = document.createElement('div');
             div.className = 'config-item';
             div.innerHTML = `
@@ -562,11 +633,14 @@
                         <small>${url}</small>
                     </div>
                     <div class="item-status-container">
-                        <div class="progress-ring" id="status-${url.replace(/[^a-zA-Z0-9]/g, '_')}">
-                            <svg class="progress-ring__circle" width="24" height="24">
-                                <circle class="progress-ring__circle-bg" r="8" cx="12" cy="12" />
-                                <circle class="progress-ring__circle-progress" r="8" cx="12" cy="12" />
-                            </svg>
+                        <div class="status-container">
+                            <span class="status-label" id="status-label-${url.replace(/[^a-zA-Z0-9]/g, '_')}">checking</span>
+                            <div class="progress-ring" id="status-${url.replace(/[^a-zA-Z0-9]/g, '_')}">
+                                <svg class="progress-ring__circle" width="24" height="24">
+                                    <circle class="progress-ring__circle-bg" r="8" cx="12" cy="12" />
+                                    <circle class="progress-ring__circle-progress" r="8" cx="12" cy="12" />
+                                </svg>
+                            </div>
                         </div>
                         <button class="remove-btn" onclick="removeItem('${url}')">Remove</button>
                     </div>
