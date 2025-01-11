@@ -1,7 +1,8 @@
+#dashboard.py
+
 from flask import Flask, render_template, jsonify, send_from_directory, request, Response
 from apscheduler.schedulers.background import BackgroundScheduler
 import json
-#import os
 import time
 
 class Dashboard:

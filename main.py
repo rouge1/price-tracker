@@ -1,4 +1,5 @@
-#!/usr/bin/env python3
+#main.py
+
 from tracker import PriceTracker
 from dashboard import Dashboard
 from config_manager import ConfigManager
