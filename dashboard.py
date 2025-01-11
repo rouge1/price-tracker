@@ -1,6 +1,8 @@
-from flask import Flask, render_template, jsonify, send_from_directory, request
+from flask import Flask, render_template, jsonify, send_from_directory, request, Response
 from apscheduler.schedulers.background import BackgroundScheduler
-import os
+import json
+#import os
+import time
 
 class Dashboard:
     """Flask application for the dashboard"""
@@ -21,10 +23,36 @@ class Dashboard:
     def setup_routes(self):
         """Setup Flask routes"""
         
+        def generate_status():
+            # Capture config_manager reference
+            config_manager = self.config_manager
+            while True:
+                # Get latest status for all items
+                config_items = config_manager.get_items()
+                statuses = {item['url']: item.get('status', 'checking') 
+                        for item in config_items}
+                
+                # Format as SSE data
+                data = f"data: {json.dumps(statuses)}\n\n"
+                yield data
+                time.sleep(1)  # Check every second
+        
         @self.app.route('/')
         def index():
             return render_template('dashboard.html')
-            
+    
+        @self.app.route('/api/status/stream')
+        def status_stream_endpoint():
+            """SSE endpoint for status updates"""
+            return Response(
+                generate_status(),
+                mimetype='text/event-stream',
+                headers={
+                    'Cache-Control': 'no-cache',
+                    'Connection': 'keep-alive'
+                }
+            )
+                
         @self.app.route('/api/items')
         def get_items():
             """Get all items data"""
@@ -99,6 +127,30 @@ class Dashboard:
                     statuses[item['scraper'].url] = 'error'
             return jsonify(statuses)
             
+        @self.app.route('/api/status/stream')
+        def stream_status():
+            """SSE endpoint for status updates"""
+            def generate_status():
+                while True:
+                    # Get latest status for all items
+                    config_items = self.config_manager.get_items()
+                    statuses = {item['url']: item.get('status', 'checking') 
+                            for item in config_items}
+                    
+                    # Format as SSE data
+                    data = f"data: {json.dumps(statuses)}\n\n"
+                    yield data
+                    time.sleep(1)  # Check every second
+
+            return Response(
+                generate_status(),
+                mimetype='text/event-stream',
+                headers={
+                    'Cache-Control': 'no-cache',
+                    'Connection': 'keep-alive'
+                }
+            )            
+
     def run(self, host='0.0.0.0', port=5000):
         """Run the Flask application"""
         self.app.run(host=host, port=port)

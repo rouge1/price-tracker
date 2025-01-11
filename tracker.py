@@ -40,6 +40,8 @@ class PriceTracker:
                     for config_item in config_items:
                         if config_item['url'] == item['scraper'].url:
                             config_item['status'] = 'success'
+                            # Save immediately to ensure SSE picks up change
+                            self.config_manager.save_items(config_items)
                     self.logger.info(f"Updated item {item_id}")
             except Exception as e:
                 # Update status to error

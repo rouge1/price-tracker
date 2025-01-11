@@ -650,6 +650,28 @@
             updateItemStatus(url, 'checking');
         }
 
+        // Initialize SSE connection
+        const statusSource = new EventSource('/api/status/stream');
+
+        // Handle incoming status updates
+        statusSource.onmessage = function(event) {
+            const statuses = JSON.parse(event.data);
+            Object.entries(statuses).forEach(([url, status]) => {
+                updateItemStatus(url, status);
+            });
+        };
+
+        // Handle SSE connection errors
+        statusSource.onerror = function(error) {
+            console.error('SSE connection error:', error);
+            // Attempt to reconnect after 5 seconds
+            setTimeout(() => {
+                statusSource.close();
+                const newSource = new EventSource('/api/status/stream');
+                statusSource = newSource;
+            }, 5000);
+        };
+
         // Initial load
         updateDashboard();
         
